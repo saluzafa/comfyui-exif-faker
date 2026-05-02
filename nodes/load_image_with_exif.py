@@ -48,6 +48,16 @@ class LoadImageWithEXIF:
         path = Path(folder_paths.get_annotated_filepath(image))
         return str(path.stat().st_mtime) if path.is_file() else image
 
+    @classmethod
+    def VALIDATE_INPUTS(cls, image: str):
+        # Bypass dropdown-list validation so ComfyUI's mask editor can pass
+        # clipspace paths like "clipspace/clipspace-painted-masked-XXX.png [input]".
+        if folder_paths is None:
+            return True
+        if not folder_paths.exists_annotated_filepath(image):
+            return f"Invalid image file: {image}"
+        return True
+
     def execute(self, image: str):
         if folder_paths is None:
             raise RuntimeError("folder_paths not available; this node requires ComfyUI.")
