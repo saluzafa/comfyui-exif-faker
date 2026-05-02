@@ -29,8 +29,8 @@ def _list_input_images() -> list[str]:
 class LoadImageWithEXIF:
     CATEGORY = "image/exif"
     FUNCTION = "execute"
-    RETURN_TYPES = ("IMAGE", "EXIF")
-    RETURN_NAMES = ("image", "exif")
+    RETURN_TYPES = ("IMAGE", "MASK", "EXIF")
+    RETURN_NAMES = ("image", "mask", "exif")
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -60,7 +60,18 @@ class LoadImageWithEXIF:
 
         with Image.open(path) as im:
             im = ImageOps.exif_transpose(im)
-            im = im.convert("RGB")
-            arr = np.asarray(im, dtype=np.float32) / 255.0
-        tensor = torch.from_numpy(arr)[None, ...]
-        return (tensor, exif_bytes)
+            has_alpha = "A" in im.getbands()
+            rgb = im.convert("RGB")
+            rgb_arr = np.asarray(rgb, dtype=np.float32) / 255.0
+            if has_alpha:
+                alpha = np.asarray(im.getchannel("A"), dtype=np.float32) / 255.0
+                mask_arr = 1.0 - alpha
+            else:
+                mask_arr = None
+
+        image_tensor = torch.from_numpy(rgb_arr)[None, ...]
+        if mask_arr is not None:
+            mask_tensor = torch.from_numpy(mask_arr).unsqueeze(0)
+        else:
+            mask_tensor = torch.zeros((1, 64, 64), dtype=torch.float32)
+        return (image_tensor, mask_tensor, exif_bytes)
