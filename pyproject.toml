@@ -1,0 +1,11 @@
+[project]
+name = "comfyui-exif-faker"
+description = "ComfyUI nodes that fake EXIF metadata (e.g. iPhone 15 Pro) on generated images, and copy EXIF from one image to another."
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "piexif>=1.1.3",
+]
+
+[project.urls]
+Repository = "https://github.com/slz/comfyui-exif-faker"
