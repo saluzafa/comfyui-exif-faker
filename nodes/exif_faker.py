@@ -1,34 +1,27 @@
-"""EXIFFaker ComfyUI node."""
+"""EXIFFaker — build fake EXIF for an IMAGE; emits (IMAGE, EXIF bytes)."""
 from __future__ import annotations
 
 import datetime as _dt
-from pathlib import Path
 
 import piexif
 
-from ..core import counter, exif_builder, gps_builder, jpeg_writer, makernote, profiles
-
-try:
-    import folder_paths  # type: ignore
-except ImportError:  # outside ComfyUI (tests, linting)
-    folder_paths = None
+from ..core import exif_builder, gps_builder, jpeg_writer, makernote, profiles
 
 
 _PROFILES = profiles.discover()
 
 
-def _output_dir() -> Path:
-    if folder_paths is not None:
-        return Path(folder_paths.get_output_directory())
-    return Path("output")
+def _tensor_hw(image) -> tuple[int, int]:
+    """Return (height, width) from a ComfyUI IMAGE tensor shape [B,H,W,C]."""
+    shape = image.shape if hasattr(image, "shape") else (1, 0, 0, 3)
+    return int(shape[1]), int(shape[2])
 
 
 class EXIFFaker:
     CATEGORY = "image/exif"
     FUNCTION = "execute"
-    RETURN_TYPES = ("IMAGE",)
-    RETURN_NAMES = ("image",)
-    OUTPUT_NODE = True
+    RETURN_TYPES = ("IMAGE", "EXIF")
+    RETURN_NAMES = ("image", "exif")
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -37,9 +30,7 @@ class EXIFFaker:
             "required": {
                 "image": ("IMAGE",),
                 "device_profile": (names,),
-                "jpg_quality": ("INT", {"default": 92, "min": 1, "max": 100, "step": 1}),
                 "enable_makernote": ("BOOLEAN", {"default": True}),
-                "filename_prefix": ("STRING", {"default": "IMG"}),
             },
             "optional": {
                 "iso": ("STRING", {"default": ""}),
@@ -60,9 +51,7 @@ class EXIFFaker:
         self,
         image,
         device_profile: str,
-        jpg_quality: int,
         enable_makernote: bool,
-        filename_prefix: str,
         iso: str = "",
         shutter_speed: str = "",
         exposure_compensation: str = "",
@@ -84,17 +73,16 @@ class EXIFFaker:
             if datetime_taken.strip()
             else _dt.datetime.now()
         )
-        dt_str_for_builder = capture_dt.strftime("%Y:%m:%d %H:%M:%S")
+        height, width = _tensor_hw(image)
 
-        # First pass: build EXIF with placeholder dimensions; jpeg_writer fixes them.
         exif_dict = exif_builder.build(
             profile,
             iso=iso,
             shutter_speed=shutter_speed,
             exposure_compensation=exposure_compensation,
-            datetime_taken=dt_str_for_builder,
-            pixel_width=0,
-            pixel_height=0,
+            datetime_taken=capture_dt.strftime("%Y:%m:%d %H:%M:%S"),
+            pixel_width=width,
+            pixel_height=height,
         )
 
         gps = gps_builder.build(
@@ -118,13 +106,5 @@ class EXIFFaker:
             if blob:
                 exif_dict["Exif"][piexif.ExifIFD.MakerNote] = blob
 
-        out_path = counter.next_path(_output_dir(), prefix=filename_prefix or "IMG")
-        # Save once with quality but without final EXIF dimensions, then re-encode.
-        # Simpler: render PIL once, dump EXIF for known size, save.
-        from ..core.jpeg_writer import tensor_to_pil
-        pil = tensor_to_pil(image)
-        exif_bytes = jpeg_writer.dump_exif_for_size(exif_dict, pil.width, pil.height)
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        pil.save(out_path, format="JPEG", quality=int(jpg_quality), subsampling=2, exif=exif_bytes)
-
-        return (image,)
+        exif_bytes = jpeg_writer.dump_exif_for_size(exif_dict, width, height)
+        return (image, exif_bytes)
