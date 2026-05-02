@@ -47,7 +47,8 @@ class SaveJPG:
         pil.save(out_path, **save_kwargs)
 
         try:
-            subfolder = str(out_path.parent.relative_to(out_dir))
+            rel = out_path.parent.relative_to(out_dir)
+            subfolder = "" if str(rel) == "." else str(rel)
         except ValueError:
             subfolder = ""
         return {
