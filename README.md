@@ -1,34 +1,62 @@
 # ComfyUI EXIF Faker
 
-Three ComfyUI nodes for working with EXIF metadata on generated images.
+Five ComfyUI nodes for working with EXIF metadata on generated images.
+
+## Pipeline
+
+```
+[Load Image (with EXIF)] ─┐
+                          ▼
+                      [EXIF Copy] ──> (IMAGE, EXIF) ──┬─> [Save JPG]
+                          ▲                           └─> [Preview JPG]
+                          │
+[VAE Decode etc.] ────────┘ (target_image)
+
+
+[VAE Decode etc.] ──> [EXIF Faker] ──> (IMAGE, EXIF) ──┬─> [Save JPG]
+                                                       └─> [Preview JPG]
+```
+
+`EXIFFaker` and `EXIFCopy` produce metadata; `SaveJPG` and `PreviewJPG` do the I/O. You can branch the same `(IMAGE, EXIF)` pair into both save and preview.
 
 ## Nodes
 
 ### EXIF Faker (fake camera metadata)
-Saves an `IMAGE` as a JPG with fabricated EXIF that mimics a real device (currently iPhone 15 Pro main 24 mm). Pass-through: also returns the input image so you can chain to a preview.
+Builds fabricated EXIF that mimics a real device (currently iPhone 15 Pro main 24 mm).
 
-Inputs:
-- `image`, `device_profile` (dropdown), `jpg_quality` (1–100, default 92), `enable_makernote`, `filename_prefix`
-- Optional per-shot overrides (empty ⇒ profile default, empty datetime ⇒ now): `iso`, `shutter_speed` (e.g. `1/120`), `exposure_compensation`, `datetime_taken` (`YYYY:MM:DD HH:MM:SS`)
-- Optional GPS (omit lat+lon ⇒ no GPS block): `gps_latitude`, `gps_longitude`, `gps_altitude_m`, `gps_timestamp`, `gps_heading_deg`, `gps_speed_kmh`, `gps_h_error_m`
-
-Output: `IMG_XXXX.JPG` (4-digit counter) in ComfyUI's `output/` folder.
+- **Inputs:** `image`, `device_profile` (dropdown), `enable_makernote`
+- **Optional per-shot overrides** (empty ⇒ profile default, empty datetime ⇒ now): `iso`, `shutter_speed` (e.g. `1/120`), `exposure_compensation`, `datetime_taken` (`YYYY:MM:DD HH:MM:SS`)
+- **Optional GPS** (omit lat+lon ⇒ no GPS block): `gps_latitude`, `gps_longitude`, `gps_altitude_m`, `gps_timestamp`, `gps_heading_deg`, `gps_speed_kmh`, `gps_h_error_m`
+- **Outputs:** `IMAGE` (pass-through), `EXIF` (raw bytes ready for SaveJPG/PreviewJPG)
 
 ### Load Image (with EXIF)
 Like the stock LoadImage but also returns the source file's raw EXIF bytes on a second `EXIF` output.
 
 ### EXIF Copy (transfer metadata)
-Saves a target `IMAGE` as a JPG with EXIF copied verbatim from an `EXIF` source — useful for round-tripping a real photo through a generative workflow without losing its metadata (Apple MakerNote bytes are preserved).
+Pairs the target `IMAGE` with EXIF copied verbatim from an `EXIF` source — useful for round-tripping a real photo through a generative workflow without losing its metadata (Apple MakerNote bytes are preserved).
+
+- **Inputs:** `target_image` (IMAGE), `exif_source` (EXIF from LoadImageWithEXIF)
+- **Outputs:** `IMAGE` (pass-through), `EXIF` (rewritten with target dimensions)
+
+### Save JPG (with EXIF)
+Encodes IMAGE as JPEG with the supplied EXIF and writes `IMG_XXXX.JPG` (4-digit counter) to ComfyUI's output folder.
+
+- **Inputs:** `image`, `exif`, `jpg_quality` (1–100, default 92), `filename_prefix` (default `IMG`)
+
+### Preview JPG (with EXIF)
+Encodes IMAGE+EXIF into ComfyUI's temp folder so the JPG appears in the node panel for visual inspection. Re-runs every workflow execution.
+
+- **Inputs:** `image`, `exif`, `jpg_quality` (1–100, default 92)
 
 ## Install
 
 ```
 cd ComfyUI/custom_nodes
 git clone <this repo>
-pip install piexif
+pip install -r comfyui-exif-faker/requirements.txt
 ```
 
-Restart ComfyUI. The three nodes appear under `image/exif`.
+Restart ComfyUI. The five nodes appear under `image/exif`.
 
 ## Adding a device profile
 
