@@ -4,6 +4,7 @@ from .nodes.exif_faker import EXIFFaker
 from .nodes.load_image_with_exif import LoadImageWithEXIF
 from .nodes.preview_jpg import PreviewJPG
 from .nodes.save_jpg import SaveJPG
+from .nodes.save_video import SaveVideoWithEXIF
 
 NODE_CLASS_MAPPINGS = {
     "EXIFFaker": EXIFFaker,
@@ -11,6 +12,7 @@ NODE_CLASS_MAPPINGS = {
     "LoadImageWithEXIF": LoadImageWithEXIF,
     "SaveJPG": SaveJPG,
     "PreviewJPG": PreviewJPG,
+    "SaveVideoWithEXIF": SaveVideoWithEXIF,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -19,6 +21,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "LoadImageWithEXIF": "Load Image (with EXIF)",
     "SaveJPG": "Save JPG (with EXIF)",
     "PreviewJPG": "Preview JPG (with EXIF)",
+    "SaveVideoWithEXIF": "Save Video (with EXIF)",
 }
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

@@ -43,6 +43,14 @@ Encodes IMAGE as JPEG with the supplied EXIF and writes `IMG_XXXX.JPG` (4-digit 
 
 - **Inputs:** `image`, `exif`, `jpg_quality` (1–100, default 92), `filename_prefix` (default `IMG`)
 
+### Save Video (with EXIF)
+Re-encodes a `VIDEO` (e.g. from a Wan/Hunyuan workflow or a `LoadVideo` node) through ffmpeg and embeds randomized iPhone 17 Pro QuickTime metadata, then writes `IMG_XXXX.MP4` to ComfyUI's output folder. Mirrors the algorithm used by the influencer-studio video-authenticity pipeline.
+
+- **Inputs:** `video`, `filename_prefix` (default `IMG`, supports the same `%date:...%`/`%width%`/`%height%` tokens as Save JPG), `crf` (0–51, default 20)
+- **Optional GPS:** `latitude`, `longitude` — leave both at `0.0` to skip GPS tags entirely. When set, altitude (0–200 m) and image direction (0–360°) are randomized and `com.apple.quicktime.location.ISO6709` is written.
+- Tags written: `make=Apple`, `model=iPhone 17 Pro`, `software` (random iOS 19.x), `creation_time` (random within the last 30 days, ISO-8601 Z), and the matching `com.apple.quicktime.*` atoms.
+- **Requires `ffmpeg` on the system PATH** (or set `COMFYUI_EXIF_FAKER_FFMPEG=/path/to/ffmpeg`). Re-encodes with `libx264` high@5.1 / CRF 20 / yuv420p + AAC 128k, `+faststart+use_metadata_tags`.
+
 ### Preview JPG (with EXIF)
 Encodes IMAGE+EXIF into ComfyUI's temp folder so the JPG appears in the node panel for visual inspection. Re-runs every workflow execution.
 
