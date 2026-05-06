@@ -1,6 +1,8 @@
 """SaveJPG — write an IMAGE + EXIF bytes to disk as a JPEG."""
 from __future__ import annotations
 
+import datetime
+import re
 from pathlib import Path
 
 from ..core import counter
@@ -16,6 +18,37 @@ def _output_dir() -> Path:
     if folder_paths is not None:
         return Path(folder_paths.get_output_directory())
     return Path("output")
+
+
+_DATE_TOKENS = [
+    ("yyyy", "%Y"),
+    ("yy", "%y"),
+    ("MM", "%m"),
+    ("dd", "%d"),
+    ("hh", "%H"),
+    ("mm", "%M"),
+    ("ss", "%S"),
+]
+_DATE_RE = re.compile(r"%date:([^%]+)%")
+
+
+def _apply_date(fmt: str, now: datetime.datetime) -> str:
+    out = fmt
+    sentinels: list[tuple[str, str]] = []
+    for i, (tok, strf) in enumerate(_DATE_TOKENS):
+        sentinel = f"\x00{i}\x00"
+        if tok in out:
+            out = out.replace(tok, sentinel)
+            sentinels.append((sentinel, strf))
+    for sentinel, strf in sentinels:
+        out = out.replace(sentinel, now.strftime(strf))
+    return out
+
+
+def _compute_vars(prefix: str, width: int, height: int) -> str:
+    prefix = prefix.replace("%width%", str(width)).replace("%height%", str(height))
+    now = datetime.datetime.now()
+    return _DATE_RE.sub(lambda m: _apply_date(m.group(1), now), prefix)
 
 
 class SaveJPG:
@@ -40,6 +73,7 @@ class SaveJPG:
             raise TypeError("exif must be bytes (from EXIFFaker or EXIFCopy).")
         prefix = filename_prefix or "IMG"
         pil = tensor_to_pil(image)
+        prefix = _compute_vars(prefix, pil.width, pil.height)
 
         if folder_paths is not None:
             full_output_folder, filename, _, subfolder, _ = folder_paths.get_save_image_path(
